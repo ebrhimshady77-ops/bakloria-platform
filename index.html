@@ -6,6 +6,10 @@
     <title>منصة بكالوريا مصر - المطور شادي</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
     <style>
         body { background-color: #0b1120; color: white; font-family: sans-serif; }
         .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
@@ -56,15 +60,15 @@
             <div id="shadyAdminPanel" class="hidden mt-8 glass p-6 rounded-3xl border-dashed border-sky-500/50">
                 <p class="text-sky-400 text-sm mb-4 font-bold">أهلاً يا مبرمج شادي - إضافة لـ <span id="targetName"></span></p>
                 <div class="space-y-4">
-                    <textarea id="shadyText" placeholder="اكتب نص أو شرح هنا..." class="w-full bg-black/40 p-4 rounded-xl border border-white/10 outline-none text-sm h-20 text-white"></textarea>
+                    <textarea id="shadyText" placeholder="اكتب نص أو شرح هنا..." class="w-full bg-black/40 p-4 rounded-xl border border-white/10 outline-none text-sm h-20 text-white text-right"></textarea>
                     <div class="flex gap-2">
-                        <input type="text" id="shadyLink" placeholder="ضع رابط (URL) هنا" class="flex-1 bg-black/40 p-3 rounded-xl border border-white/10 outline-none text-xs text-white">
+                        <input type="text" id="shadyLink" placeholder="ضع رابط (URL) هنا" class="flex-1 bg-black/40 p-3 rounded-xl border border-white/10 outline-none text-xs text-white text-right">
                         <label class="bg-white/10 p-3 rounded-xl cursor-pointer border border-white/10">
                             <i class="fas fa-file-upload"></i>
                             <input type="file" id="shadyFile" class="hidden" onchange="postContent('file')">
                         </label>
                     </div>
-                    <button onclick="postContent('text')" class="w-full shady-btn p-3 rounded-xl font-bold">نشر الآن</button>
+                    <button onclick="postContent('text')" class="w-full shady-btn p-3 rounded-xl font-bold text-white">نشر للكل الآن</button>
                 </div>
             </div>
 
@@ -90,26 +94,37 @@
         </div>
 
         <footer class="fixed bottom-0 w-full p-6 text-center z-40 bg-[#0b1120]/95 backdrop-blur-lg">
-            <a href="https://wa.me/201032821631" target="_blank" class="shady-btn w-full max-w-sm px-10 py-4 rounded-2xl font-bold inline-flex items-center justify-center gap-3">
+            <a href="https://wa.me/201032821631" target="_blank" class="shady-btn w-full max-w-sm px-10 py-4 rounded-2xl font-bold inline-flex items-center justify-center gap-3 text-white">
                 <i class="fab fa-whatsapp text-2xl"></i> تواصل مع المطور شادي
             </a>
         </footer>
     </div>
 
     <script>
+        // إعدادات Firebase من صورتك
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsKsCgBBP7g7Qh7_FotDHNtvDYlws1FdQ",
+            authDomain: "bakloria-egypt.firebaseapp.com",
+            databaseURL: "https://bakloria-egypt-default-rtdb.firebaseio.com",
+            projectId: "bakloria-egypt",
+            storageBucket: "bakloria-egypt.firebasestorage.app",
+            messagingSenderId: "876188936751",
+            appId: "1:876188936751:web:fca10e38cc198f9faa74da"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         let myData = { isAdmin: false };
         let currentSec = '';
-        let appMemory = JSON.parse(localStorage.getItem('shadyMemory')) || { 'برمجة': [], 'اختبارات': [], 'أخبار': [] };
-        let studentLogs = JSON.parse(localStorage.getItem('shadyLogs')) || [];
 
-        // منع العودة لصفحة الدخول عند الرفرش
+        // الحفاظ على تسجيل الدخول عند الرفرش
         window.onload = function() {
-            const savedUser = localStorage.getItem('shadyUser');
-            if (savedUser) {
-                myData = JSON.parse(savedUser);
+            const saved = localStorage.getItem('shadyUser');
+            if(saved) {
+                myData = JSON.parse(saved);
                 showApp();
             }
-        };
+        }
 
         function startApp() {
             const n = document.getElementById('regName').value.trim();
@@ -118,28 +133,20 @@
 
             if(!n || !p || !pass) return alert('البيانات ناقصة يا شادي!');
 
-            // الأمان: حماية بيانات المطور شادي إبراهيم
+            // --- حوار الأمان (معدل) ---
             if (pass === "2899") {
                 if (n !== "شادي إبراهيم رجب شريف" || p !== "01032821631") {
-                    alert("خطأ: هذا الباسورد مخصص للمطور شادي فقط ببياناته الأصلية!");
+                    alert("خطأ: هذا الباسورد للمطور شادي فقط ببياناته الأصلية!");
                     return;
                 }
             }
 
-            // منع التكرار
-            const isExist = studentLogs.find(u => u.phone === p && u.name === n);
-            if (isExist && !localStorage.getItem('shadyUser')) {
-                alert("هذا الحساب موجود بالفعل!");
-                return;
-            }
-
             myData = { name: n, phone: p, password: pass, isAdmin: (pass === '2899') };
             
-            if(!isExist) studentLogs.push(myData);
-
+            // حفظ بيانات الطالب في Firebase عشان تشوف الـ 1000 شخص
+            db.ref('users').push(myData);
+            
             localStorage.setItem('shadyUser', JSON.stringify(myData));
-            localStorage.setItem('shadyLogs', JSON.stringify(studentLogs));
-
             showApp();
         }
 
@@ -148,7 +155,6 @@
             document.getElementById('appSection').classList.remove('hidden');
             document.getElementById('editN').value = myData.name;
             document.getElementById('editP').value = myData.phone;
-
             if(myData.isAdmin) document.getElementById('devUsersBtn').classList.remove('hidden');
         }
 
@@ -156,69 +162,76 @@
             currentSec = sec;
             document.getElementById('targetName').innerText = sec;
             if(myData.isAdmin) document.getElementById('shadyAdminPanel').classList.remove('hidden');
-            renderView();
+            
+            // جلب البيانات لايف (Real-time) من Firebase
+            db.ref('posts/' + sec).on('value', (snapshot) => {
+                const data = snapshot.val();
+                renderView(data);
+            });
         }
 
         function postContent(type) {
             let item = { id: Date.now() };
             if(type === 'file') {
                 const f = document.getElementById('shadyFile').files[0];
-                if(f) item = { ...item, type: 'ملف', title: f.name, link: URL.createObjectURL(f) };
+                if(f) item = { ...item, type: 'ملف', title: f.name, link: 'رابط ملف افتراضي' }; // تحتاج رفع لـ Storage لو أردت ملفات حقيقية
             } else {
                 const txt = document.getElementById('shadyText').value;
                 const lnk = document.getElementById('shadyLink').value;
                 if(!txt && !lnk) return;
                 item = { ...item, type: 'محتوى', title: txt || 'رابط مضاف', link: lnk || '#' };
-                document.getElementById('shadyText').value = '';
-                document.getElementById('shadyLink').value = '';
             }
-            if(item.title) { 
-                appMemory[currentSec].push(item); 
-                localStorage.setItem('shadyMemory', JSON.stringify(appMemory));
-                renderView(); 
-            }
+            
+            // الرفع لـ Firebase عشان يظهر للكل
+            db.ref('posts/' + currentSec).push(item);
+            
+            document.getElementById('shadyText').value = '';
+            document.getElementById('shadyLink').value = '';
         }
 
-        function renderView() {
+        function renderView(data) {
             const box = document.getElementById('displayArea');
             box.innerHTML = `<h3 class="text-sky-400 font-bold mb-4 border-b border-sky-500/20 pb-2">قسم ${currentSec}:</h3>`;
-            appMemory[currentSec].forEach(i => {
-                box.innerHTML += `
-                    <div class="glass p-5 rounded-2xl flex justify-between items-center border-l-2 border-sky-500 mb-3">
-                        <div class="flex-1">
-                            <p class="text-sm font-bold text-white">${i.title}</p>
-                            ${i.link !== '#' ? `<a href="${i.link}" target="_blank" class="text-[10px] text-sky-400 underline">معاينة الرابط/الملف</a>` : ''}
-                        </div>
-                        ${myData.isAdmin ? `<button onclick="delItem(${i.id})" class="text-red-500 px-3 py-1 hover:bg-red-500/10 rounded-lg transition-colors"><i class="fas fa-trash-alt"></i></button>` : ''}
-                    </div>`;
-            });
+            
+            if(data) {
+                Object.keys(data).reverse().forEach(key => {
+                    const i = data[key];
+                    box.innerHTML += `
+                        <div class="glass p-5 rounded-2xl flex justify-between items-center border-l-2 border-sky-500 mb-3">
+                            <div class="flex-1">
+                                <p class="text-sm font-bold text-white text-right">${i.title}</p>
+                                ${i.link !== '#' ? `<a href="${i.link}" target="_blank" class="text-[10px] text-sky-400 underline">معاينة</a>` : ''}
+                            </div>
+                            ${myData.isAdmin ? `<button onclick="delItem('${key}')" class="text-red-500 px-3 py-1 rounded-lg"><i class="fas fa-trash-alt"></i></button>` : ''}
+                        </div>`;
+                });
+            }
         }
 
-        function delItem(id) {
-            if(confirm('هل أنت متأكد من حذف هذا المحتوى؟')) {
-                appMemory[currentSec] = appMemory[currentSec].filter(x => x.id !== id);
-                localStorage.setItem('shadyMemory', JSON.stringify(appMemory));
-                renderView();
+        function delItem(key) {
+            if(confirm('هل تريد الحذف من عند الجميع؟')) {
+                db.ref('posts/' + currentSec + '/' + key).remove();
             }
         }
 
         function openUsersList() {
             document.getElementById('usersPop').classList.remove('hidden');
-            const box = document.getElementById('usersDataContainer');
-            box.innerHTML = studentLogs.map(s => `
-                <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right">
-                    <p class="text-sky-400 font-bold">الاسم: ${s.name}</p>
-                    <p class="text-xs">الرقم/البريد: ${s.phone}</p>
-                    <p class="text-xs text-yellow-500 font-bold">الباسورد: ${s.password}</p>
-                </div>
-            `).join('');
+            db.ref('users').once('value', (snap) => {
+                const u = snap.val();
+                const container = document.getElementById('usersDataContainer');
+                container.innerHTML = u ? Object.values(u).map(user => `
+                    <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right">
+                        <p class="text-sky-400 font-bold">الاسم: ${user.name}</p>
+                        <p class="text-xs">الهاتف: ${user.phone}</p>
+                    </div>`).join('') : 'لا يوجد مستخدمين حالياً';
+            });
         }
 
         function saveEdit() {
             myData.name = document.getElementById('editN').value;
             myData.phone = document.getElementById('editP').value;
             localStorage.setItem('shadyUser', JSON.stringify(myData));
-            alert('تم تحديث بياناتك بنجاح');
+            alert('تم التحديث بنجاح');
             document.getElementById('profilePop').classList.add('hidden');
         }
     </script>
