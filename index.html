@@ -86,8 +86,8 @@
         <div id="profilePop" class="hidden fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-6 text-right">
             <div class="glass p-8 rounded-3xl w-full max-w-sm">
                 <h2 class="text-xl font-bold mb-6 text-sky-400">تعديل بياناتك</h2>
-                <input type="text" id="editN" placeholder="الاسم" class="w-full bg-black/40 p-4 rounded-xl border border-white/10 mb-4 outline-none text-white text-right">
-                <input type="text" id="editP" placeholder="رقم الهاتف" class="w-full bg-black/40 p-4 rounded-xl border border-white/10 mb-6 outline-none text-white text-right">
+                <input type="text" id="editN" placeholder="الاسم" class="w-full bg-black/40 p-4 rounded-xl border border-white/10 mb-4 outline-none text-white">
+                <input type="text" id="editP" placeholder="رقم الهاتف" class="w-full bg-black/40 p-4 rounded-xl border border-white/10 mb-6 outline-none text-white">
                 <button onclick="saveEdit()" class="w-full shady-btn p-4 rounded-xl font-bold mb-2">حفظ التغييرات</button>
                 <button onclick="document.getElementById('profilePop').classList.add('hidden')" class="w-full text-gray-500 text-sm">رجوع</button>
             </div>
@@ -101,6 +101,7 @@
     </div>
 
     <script>
+        // إعدادات Firebase من صورتك
         const firebaseConfig = {
             apiKey: "AIzaSyDsKsCgBBP7g7Qh7_FotDHNtvDYlws1FdQ",
             authDomain: "bakloria-egypt.firebaseapp.com",
@@ -113,9 +114,10 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let myData = { isAdmin: false, userKey: '' };
+        let myData = { isAdmin: false };
         let currentSec = '';
 
+        // الحفاظ على تسجيل الدخول عند الرفرش
         window.onload = function() {
             const saved = localStorage.getItem('shadyUser');
             if(saved) {
@@ -131,17 +133,19 @@
 
             if(!n || !p || !pass) return alert('البيانات ناقصة يا شادي!');
 
+            // --- حوار الأمان (معدل) ---
             if (pass === "2899") {
                 if (n !== "شادي إبراهيم رجب شريف" || p !== "01032821631") {
-                    alert("خطأ: هذا الباسورد للمطور شادي فقط!");
+                    alert("خطأ: هذا الباسورد للمطور شادي فقط ببياناته الأصلية!");
                     return;
                 }
             }
 
-            const newUserRef = db.ref('users').push();
-            myData = { userKey: newUserRef.key, name: n, phone: p, password: pass, isAdmin: (pass === '2899') };
+            myData = { name: n, phone: p, password: pass, isAdmin: (pass === '2899') };
             
-            newUserRef.set(myData);
+            // حفظ بيانات الطالب في Firebase عشان تشوف الـ 1000 شخص
+            db.ref('users').push(myData);
+            
             localStorage.setItem('shadyUser', JSON.stringify(myData));
             showApp();
         }
@@ -154,41 +158,33 @@
             if(myData.isAdmin) document.getElementById('devUsersBtn').classList.remove('hidden');
         }
 
-        function saveEdit() {
-            const newN = document.getElementById('editN').value;
-            const newP = document.getElementById('editP').value;
-            if(myData.userKey) {
-                db.ref('users/' + myData.userKey).update({ name: newN, phone: newP });
-            }
-            myData.name = newN;
-            myData.phone = newP;
-            localStorage.setItem('shadyUser', JSON.stringify(myData));
-            alert('تم التحديث بنجاح');
-            document.getElementById('profilePop').classList.add('hidden');
-        }
-
         function loadSection(sec) {
             currentSec = sec;
             document.getElementById('targetName').innerText = sec;
             if(myData.isAdmin) document.getElementById('shadyAdminPanel').classList.remove('hidden');
+            
+            // جلب البيانات لايف (Real-time) من Firebase
             db.ref('posts/' + sec).on('value', (snapshot) => {
-                renderView(snapshot.val());
+                const data = snapshot.val();
+                renderView(data);
             });
         }
 
         function postContent(type) {
             let item = { id: Date.now() };
-            const lnk = document.getElementById('shadyLink').value;
             if(type === 'file') {
                 const f = document.getElementById('shadyFile').files[0];
-                if(f) item = { ...item, type: 'ملف', title: "ملف: " + f.name, link: lnk || '#' };
-                else return;
+                if(f) item = { ...item, type: 'ملف', title: f.name, link: 'رابط ملف افتراضي' }; // تحتاج رفع لـ Storage لو أردت ملفات حقيقية
             } else {
                 const txt = document.getElementById('shadyText').value;
+                const lnk = document.getElementById('shadyLink').value;
                 if(!txt && !lnk) return;
                 item = { ...item, type: 'محتوى', title: txt || 'رابط مضاف', link: lnk || '#' };
             }
+            
+            // الرفع لـ Firebase عشان يظهر للكل
             db.ref('posts/' + currentSec).push(item);
+            
             document.getElementById('shadyText').value = '';
             document.getElementById('shadyLink').value = '';
         }
@@ -196,14 +192,15 @@
         function renderView(data) {
             const box = document.getElementById('displayArea');
             box.innerHTML = `<h3 class="text-sky-400 font-bold mb-4 border-b border-sky-500/20 pb-2">قسم ${currentSec}:</h3>`;
+            
             if(data) {
                 Object.keys(data).reverse().forEach(key => {
                     const i = data[key];
                     box.innerHTML += `
                         <div class="glass p-5 rounded-2xl flex justify-between items-center border-l-2 border-sky-500 mb-3">
-                            <div class="flex-1 text-right">
-                                <p class="text-sm font-bold text-white">${i.title}</p>
-                                ${i.link !== '#' ? `<a href="${i.link}" target="_blank" class="text-[10px] text-sky-400 underline">اضغط للمعاينة</a>` : ''}
+                            <div class="flex-1">
+                                <p class="text-sm font-bold text-white text-right">${i.title}</p>
+                                ${i.link !== '#' ? `<a href="${i.link}" target="_blank" class="text-[10px] text-sky-400 underline">معاينة</a>` : ''}
                             </div>
                             ${myData.isAdmin ? `<button onclick="delItem('${key}')" class="text-red-500 px-3 py-1 rounded-lg"><i class="fas fa-trash-alt"></i></button>` : ''}
                         </div>`;
@@ -212,20 +209,30 @@
         }
 
         function delItem(key) {
-            if(confirm('حذف؟')) db.ref('posts/' + currentSec + '/' + key).remove();
+            if(confirm('هل تريد الحذف من عند الجميع؟')) {
+                db.ref('posts/' + currentSec + '/' + key).remove();
+            }
         }
 
         function openUsersList() {
             document.getElementById('usersPop').classList.remove('hidden');
-            db.ref('users').on('value', (snap) => {
+            db.ref('users').once('value', (snap) => {
                 const u = snap.val();
                 const container = document.getElementById('usersDataContainer');
                 container.innerHTML = u ? Object.values(u).map(user => `
                     <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right">
-                        <p class="text-sky-400 font-bold">${user.name}</p>
+                        <p class="text-sky-400 font-bold">الاسم: ${user.name}</p>
                         <p class="text-xs">الهاتف: ${user.phone}</p>
-                    </div>`).join('') : 'لا يوجد طلاب حالياً';
+                    </div>`).join('') : 'لا يوجد مستخدمين حالياً';
             });
+        }
+
+        function saveEdit() {
+            myData.name = document.getElementById('editN').value;
+            myData.phone = document.getElementById('editP').value;
+            localStorage.setItem('shadyUser', JSON.stringify(myData));
+            alert('تم التحديث بنجاح');
+            document.getElementById('profilePop').classList.add('hidden');
         }
     </script>
 </body>
