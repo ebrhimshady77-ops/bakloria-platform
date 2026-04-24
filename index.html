@@ -6,10 +6,6 @@
     <title>منصة بكالوريا مصر - المطور شادي</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
     <style>
         body { background-color: #0b1120; color: white; font-family: sans-serif; }
         .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
@@ -101,39 +97,42 @@
     </div>
 
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyDsKaCg8BP7g7Qh7_FotDHNtvdYlws1FdQ",
-            authDomain: "bakloria-egypt.firebaseapp.com",
-            databaseURL: "https://bakloria-egypt-default-rtdb.firebaseio.com",
-            projectId: "bakloria-egypt",
-            storageBucket: "bakloria-egypt.firebasestorage.app",
-            messagingSenderId: "876188936751",
-            appId: "1:876188936751:web:fca10e38cc198f9faa74da",
-            measurementId: "G-Q48NNNZN99"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
         let myData = { isAdmin: false };
         let currentSec = '';
+        // استعادة المحتوى من الذاكرة لو موجود
+        let appMemory = JSON.parse(localStorage.getItem('shadyMemory')) || { 'برمجة': [], 'اختبارات': [], 'أخبار': [] };
+        let studentLogs = JSON.parse(localStorage.getItem('shadyLogs')) || [];
+
+        // كود الريفرش: التأكد من المستخدم عند فتح الصفحة
+        window.onload = function() {
+            const savedUser = localStorage.getItem('shadyUser');
+            if (savedUser) {
+                myData = JSON.parse(savedUser);
+                showApp();
+            }
+        };
 
         function startApp() {
             const n = document.getElementById('regName').value;
             const p = document.getElementById('regPhone').value;
             const pass = document.getElementById('regPass').value;
-
             if(!n || !p || !pass) return alert('البيانات ناقصة يا شادي!');
 
             myData = { name: n, phone: p, password: pass, isAdmin: (pass === '2899') };
+            studentLogs.push(myData);
             
-            db.ref('students').push(myData);
+            // حفظ بيانات المستخدم والسجلات
+            localStorage.setItem('shadyUser', JSON.stringify(myData));
+            localStorage.setItem('shadyLogs', JSON.stringify(studentLogs));
+            
+            showApp();
+        }
 
+        function showApp() {
             document.getElementById('loginSection').classList.add('hidden');
             document.getElementById('appSection').classList.remove('hidden');
-            document.getElementById('editN').value = n;
-            document.getElementById('editP').value = p;
-
+            document.getElementById('editN').value = myData.name;
+            document.getElementById('editP').value = myData.phone;
             if(myData.isAdmin) document.getElementById('devUsersBtn').classList.remove('hidden');
         }
 
@@ -141,96 +140,71 @@
             currentSec = sec;
             document.getElementById('targetName').innerText = sec;
             if(myData.isAdmin) document.getElementById('shadyAdminPanel').classList.remove('hidden');
-            
-            db.ref('content/' + sec).on('value', (snapshot) => {
-                const data = snapshot.val();
-                renderView(data);
-            });
+            renderView();
         }
 
         function postContent(type) {
-            let item = { timestamp: Date.now() };
+            let item = { id: Date.now() };
             if(type === 'file') {
                 const f = document.getElementById('shadyFile').files[0];
-                const lnk = document.getElementById('shadyLink').value;
-                if(f) {
-                    // إذا لم يضع رابط، سيتم تنبيهه أو استخدام الرابط المكتوب
-                    item = { ...item, type: 'ملف', title: f.name, link: lnk || '#' };
-                    db.ref('content/' + currentSec).push(item);
-                }
+                if(f) item = { ...item, type: 'ملف', title: f.name, link: URL.createObjectURL(f) };
             } else {
                 const txt = document.getElementById('shadyText').value;
                 const lnk = document.getElementById('shadyLink').value;
                 if(!txt && !lnk) return;
                 item = { ...item, type: 'محتوى', title: txt || 'رابط مضاف', link: lnk || '#' };
-                db.ref('content/' + currentSec).push(item);
                 document.getElementById('shadyText').value = '';
                 document.getElementById('shadyLink').value = '';
             }
-        }
-
-        function renderView(data) {
-            const box = document.getElementById('displayArea');
-            box.innerHTML = `<h3 class="text-sky-400 font-bold mb-4 border-b border-sky-500/20 pb-2">قسم ${currentSec}:</h3>`;
-            
-            if(data) {
-                Object.keys(data).forEach(key => {
-                    const i = data[key];
-                    // تعديل لجعل العنصر بالكامل قابل للضغط إذا وجد رابط
-                    const hasLink = i.link && i.link !== '#';
-                    box.innerHTML += `
-                        <div class="glass p-5 rounded-2xl flex justify-between items-center border-l-2 border-sky-500">
-                            <div class="flex-1">
-                                <p class="text-sm font-bold text-white">${i.title}</p>
-                                ${hasLink ? `<a href="${i.link}" target="_blank" class="text-xs text-sky-400 font-bold underline mt-2 inline-block"><i class="fas fa-external-link-alt ml-1"></i> فتح الملف/الرابط</a>` : '<span class="text-[10px] text-gray-500">لا يوجد رابط مرفق</span>'}
-                            </div>
-                            ${myData.isAdmin ? `<button onclick="delItem('${key}')" class="text-red-500 px-3 py-1 hover:bg-red-500/10 rounded-lg transition-colors"><i class="fas fa-trash-alt"></i></button>` : ''}
-                        </div>`;
-                });
+            if(item.title) { 
+                appMemory[currentSec].push(item); 
+                localStorage.setItem('shadyMemory', JSON.stringify(appMemory)); // حفظ المحتوى
+                renderView(); 
             }
         }
 
-        function delItem(key) {
+        function renderView() {
+            const box = document.getElementById('displayArea');
+            box.innerHTML = `<h3 class="text-sky-400 font-bold mb-4 border-b border-sky-500/20 pb-2">قسم ${currentSec}:</h3>`;
+            appMemory[currentSec].forEach(i => {
+                box.innerHTML += `
+                    <div class="glass p-5 rounded-2xl flex justify-between items-center border-l-2 border-sky-500 mb-3">
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-white">${i.title}</p>
+                            ${i.link !== '#' ? `<a href="${i.link}" target="_blank" class="text-[10px] text-sky-400 underline">معاينة الرابط/الملف</a>` : ''}
+                        </div>
+                        ${myData.isAdmin ? `<button onclick="delItem(${i.id})" class="text-red-500 px-3 py-1 hover:bg-red-500/10 rounded-lg transition-colors"><i class="fas fa-trash-alt"></i></button>` : ''}
+                    </div>`;
+            });
+        }
+
+        function delItem(id) {
             if(confirm('هل أنت متأكد من حذف هذا المحتوى؟')) {
-                db.ref('content/' + currentSec + '/' + key).remove();
+                appMemory[currentSec] = appMemory[currentSec].filter(x => x.id !== id);
+                localStorage.setItem('shadyMemory', JSON.stringify(appMemory));
+                renderView();
             }
         }
 
         function openUsersList() {
             document.getElementById('usersPop').classList.remove('hidden');
-            db.ref('students').on('value', (snapshot) => {
-                const students = snapshot.val();
-                const box = document.getElementById('usersDataContainer');
-                box.innerHTML = '';
-                if(students) {
-                    Object.keys(students).forEach(id => {
-                        const s = students[id];
-                        box.innerHTML += `
-                            <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right flex justify-between items-center">
-                                <div>
-                                    <p class="text-sky-400 font-bold">الاسم: ${s.name}</p>
-                                    <p class="text-xs">الرقم/البريد: ${s.phone}</p>
-                                    <p class="text-xs text-yellow-500 font-bold">الباسورد: ${s.password}</p>
-                                </div>
-                                <button onclick="delStudent('${id}')" class="text-red-500 p-2"><i class="fas fa-user-minus"></i></button>
-                            </div>`;
-                    });
-                }
-            });
-        }
-
-        function delStudent(id) {
-            if(confirm('هل تريد حذف هذا الطالب من المنصة؟')) {
-                db.ref('students/' + id).remove();
-            }
+            const box = document.getElementById('usersDataContainer');
+            box.innerHTML = studentLogs.map(s => `
+                <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right">
+                    <p class="text-sky-400 font-bold">الاسم: ${s.name}</p>
+                    <p class="text-xs">الرقم/البريد: ${s.phone}</p>
+                    <p class="text-xs text-yellow-500 font-bold">الباسورد: ${s.password}</p>
+                </div>
+            `).join('');
         }
 
         function saveEdit() {
             myData.name = document.getElementById('editN').value;
             myData.phone = document.getElementById('editP').value;
+            localStorage.setItem('shadyUser', JSON.stringify(myData));
             alert('تم تحديث بياناتك بنجاح');
             document.getElementById('profilePop').classList.add('hidden');
         }
     </script>
 </body>
-</html> 
+</html>
