@@ -101,7 +101,6 @@
     </div>
 
     <script>
-        // --- إعدادات Firebase الخاصة بك ---
         const firebaseConfig = {
             apiKey: "AIzaSyDsKaCg8BP7g7Qh7_FotDHNtvdYlws1FdQ",
             authDomain: "bakloria-egypt.firebaseapp.com",
@@ -128,7 +127,6 @@
 
             myData = { name: n, phone: p, password: pass, isAdmin: (pass === '2899') };
             
-            // حفظ بيانات الطالب في السحابة
             db.ref('students').push(myData);
 
             document.getElementById('loginSection').classList.add('hidden');
@@ -144,7 +142,6 @@
             document.getElementById('targetName').innerText = sec;
             if(myData.isAdmin) document.getElementById('shadyAdminPanel').classList.remove('hidden');
             
-            // جلب البيانات من السحابة لحظياً
             db.ref('content/' + sec).on('value', (snapshot) => {
                 const data = snapshot.val();
                 renderView(data);
@@ -155,9 +152,10 @@
             let item = { timestamp: Date.now() };
             if(type === 'file') {
                 const f = document.getElementById('shadyFile').files[0];
+                const lnk = document.getElementById('shadyLink').value;
                 if(f) {
-                    // ملاحظة: لرفع الملفات فعلياً تحتاج Firebase Storage، هنا سنضع الاسم كـ تايتل للتبسيط
-                    item = { ...item, type: 'ملف', title: f.name, link: '#' };
+                    // إذا لم يضع رابط، سيتم تنبيهه أو استخدام الرابط المكتوب
+                    item = { ...item, type: 'ملف', title: f.name, link: lnk || '#' };
                     db.ref('content/' + currentSec).push(item);
                 }
             } else {
@@ -178,11 +176,13 @@
             if(data) {
                 Object.keys(data).forEach(key => {
                     const i = data[key];
+                    // تعديل لجعل العنصر بالكامل قابل للضغط إذا وجد رابط
+                    const hasLink = i.link && i.link !== '#';
                     box.innerHTML += `
                         <div class="glass p-5 rounded-2xl flex justify-between items-center border-l-2 border-sky-500">
                             <div class="flex-1">
                                 <p class="text-sm font-bold text-white">${i.title}</p>
-                                ${i.link !== '#' ? `<a href="${i.link}" target="_blank" class="text-[10px] text-sky-400 underline">معاينة الرابط/الملف</a>` : ''}
+                                ${hasLink ? `<a href="${i.link}" target="_blank" class="text-xs text-sky-400 font-bold underline mt-2 inline-block"><i class="fas fa-external-link-alt ml-1"></i> فتح الملف/الرابط</a>` : '<span class="text-[10px] text-gray-500">لا يوجد رابط مرفق</span>'}
                             </div>
                             ${myData.isAdmin ? `<button onclick="delItem('${key}')" class="text-red-500 px-3 py-1 hover:bg-red-500/10 rounded-lg transition-colors"><i class="fas fa-trash-alt"></i></button>` : ''}
                         </div>`;
@@ -198,21 +198,31 @@
 
         function openUsersList() {
             document.getElementById('usersPop').classList.remove('hidden');
-            db.ref('students').once('value', (snapshot) => {
+            db.ref('students').on('value', (snapshot) => {
                 const students = snapshot.val();
                 const box = document.getElementById('usersDataContainer');
                 box.innerHTML = '';
                 if(students) {
-                    Object.values(students).forEach(s => {
+                    Object.keys(students).forEach(id => {
+                        const s = students[id];
                         box.innerHTML += `
-                            <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right">
-                                <p class="text-sky-400 font-bold">الاسم: ${s.name}</p>
-                                <p class="text-xs">الرقم/البريد: ${s.phone}</p>
-                                <p class="text-xs text-yellow-500 font-bold">الباسورد: ${s.password}</p>
+                            <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right flex justify-between items-center">
+                                <div>
+                                    <p class="text-sky-400 font-bold">الاسم: ${s.name}</p>
+                                    <p class="text-xs">الرقم/البريد: ${s.phone}</p>
+                                    <p class="text-xs text-yellow-500 font-bold">الباسورد: ${s.password}</p>
+                                </div>
+                                <button onclick="delStudent('${id}')" class="text-red-500 p-2"><i class="fas fa-user-minus"></i></button>
                             </div>`;
                     });
                 }
             });
+        }
+
+        function delStudent(id) {
+            if(confirm('هل تريد حذف هذا الطالب من المنصة؟')) {
+                db.ref('students/' + id).remove();
+            }
         }
 
         function saveEdit() {
@@ -224,4 +234,3 @@
     </script>
 </body>
 </html>
- 
