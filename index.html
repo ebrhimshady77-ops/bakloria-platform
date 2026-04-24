@@ -22,7 +22,6 @@
                 <input type="text" id="regName" placeholder="الاسم بالكامل" class="w-full bg-black/30 p-4 rounded-2xl border border-white/10 outline-none focus:border-sky-500 text-white">
                 <input type="text" id="regPhone" placeholder="رقم الهاتف أو البريد" class="w-full bg-black/30 p-4 rounded-2xl border border-white/10 outline-none focus:border-sky-500 text-white">
                 <input type="password" id="regPass" placeholder="كلمة المرور" class="w-full bg-black/30 p-4 rounded-2xl border border-white/10 outline-none focus:border-sky-500 text-white">
-                
                 <button onclick="startApp()" class="w-full shady-btn p-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all">دخول</button>
             </div>
         </div>
@@ -67,7 +66,6 @@
                     <button onclick="postContent('text')" class="w-full shady-btn p-3 rounded-xl font-bold">نشر الآن</button>
                 </div>
             </div>
-
             <div id="displayArea" class="mt-10 pb-48 space-y-4 text-right"></div>
         </main>
 
@@ -99,32 +97,43 @@
     <script>
         let myData = { isAdmin: false };
         let currentSec = '';
-        // استعادة المحتوى من الذاكرة لو موجود
         let appMemory = JSON.parse(localStorage.getItem('shadyMemory')) || { 'برمجة': [], 'اختبارات': [], 'أخبار': [] };
         let studentLogs = JSON.parse(localStorage.getItem('shadyLogs')) || [];
 
-        // كود الريفرش: التأكد من المستخدم عند فتح الصفحة
-        window.onload = function() {
+        // تشغيل التلقائي عند الرفرش
+        document.addEventListener("DOMContentLoaded", function() {
             const savedUser = localStorage.getItem('shadyUser');
             if (savedUser) {
                 myData = JSON.parse(savedUser);
                 showApp();
             }
-        };
+        });
 
         function startApp() {
-            const n = document.getElementById('regName').value;
-            const p = document.getElementById('regPhone').value;
-            const pass = document.getElementById('regPass').value;
+            const n = document.getElementById('regName').value.trim();
+            const p = document.getElementById('regPhone').value.trim();
+            const pass = document.getElementById('regPass').value.trim();
+
             if(!n || !p || !pass) return alert('البيانات ناقصة يا شادي!');
 
+            // حماية حساب المطور شادي
+            if (pass === "2899") {
+                if (n !== "شادي إبراهيم رجب شريف" || p !== "01032821631") {
+                    alert("خطأ: هذا الباسورد مخصص للمطور شادي فقط ببياناته الأصلية!");
+                    return;
+                }
+            }
+
             myData = { name: n, phone: p, password: pass, isAdmin: (pass === '2899') };
-            studentLogs.push(myData);
             
-            // حفظ بيانات المستخدم والسجلات
+            // منع تكرار التسجيل
+            const isExist = studentLogs.find(u => u.phone === p && u.name === n);
+            if (!isExist) {
+                studentLogs.push(myData);
+                localStorage.setItem('shadyLogs', JSON.stringify(studentLogs));
+            }
+
             localStorage.setItem('shadyUser', JSON.stringify(myData));
-            localStorage.setItem('shadyLogs', JSON.stringify(studentLogs));
-            
             showApp();
         }
 
@@ -158,7 +167,7 @@
             }
             if(item.title) { 
                 appMemory[currentSec].push(item); 
-                localStorage.setItem('shadyMemory', JSON.stringify(appMemory)); // حفظ المحتوى
+                localStorage.setItem('shadyMemory', JSON.stringify(appMemory));
                 renderView(); 
             }
         }
@@ -173,13 +182,13 @@
                             <p class="text-sm font-bold text-white">${i.title}</p>
                             ${i.link !== '#' ? `<a href="${i.link}" target="_blank" class="text-[10px] text-sky-400 underline">معاينة الرابط/الملف</a>` : ''}
                         </div>
-                        ${myData.isAdmin ? `<button onclick="delItem(${i.id})" class="text-red-500 px-3 py-1 hover:bg-red-500/10 rounded-lg transition-colors"><i class="fas fa-trash-alt"></i></button>` : ''}
+                        ${myData.isAdmin ? `<button onclick="delItem(${i.id})" class="text-red-500 px-3 py-1 hover:bg-red-500/10 rounded-lg"><i class="fas fa-trash-alt"></i></button>` : ''}
                     </div>`;
             });
         }
 
         function delItem(id) {
-            if(confirm('هل أنت متأكد من حذف هذا المحتوى؟')) {
+            if(confirm('حذف؟')) {
                 appMemory[currentSec] = appMemory[currentSec].filter(x => x.id !== id);
                 localStorage.setItem('shadyMemory', JSON.stringify(appMemory));
                 renderView();
@@ -191,9 +200,8 @@
             const box = document.getElementById('usersDataContainer');
             box.innerHTML = studentLogs.map(s => `
                 <div class="glass p-4 rounded-xl border-r-4 border-sky-500 text-right">
-                    <p class="text-sky-400 font-bold">الاسم: ${s.name}</p>
-                    <p class="text-xs">الرقم/البريد: ${s.phone}</p>
-                    <p class="text-xs text-yellow-500 font-bold">الباسورد: ${s.password}</p>
+                    <p class="text-sky-400 font-bold">${s.name}</p>
+                    <p class="text-xs">${s.phone}</p>
                 </div>
             `).join('');
         }
@@ -202,9 +210,10 @@
             myData.name = document.getElementById('editN').value;
             myData.phone = document.getElementById('editP').value;
             localStorage.setItem('shadyUser', JSON.stringify(myData));
-            alert('تم تحديث بياناتك بنجاح');
+            alert('تم التحديث');
             document.getElementById('profilePop').classList.add('hidden');
         }
     </script>
 </body>
 </html>
+
