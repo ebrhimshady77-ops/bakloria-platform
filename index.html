@@ -99,11 +99,10 @@
     <script>
         let myData = { isAdmin: false };
         let currentSec = '';
-        // استعادة المحتوى من الذاكرة لو موجود
         let appMemory = JSON.parse(localStorage.getItem('shadyMemory')) || { 'برمجة': [], 'اختبارات': [], 'أخبار': [] };
         let studentLogs = JSON.parse(localStorage.getItem('shadyLogs')) || [];
 
-        // كود الريفرش: التأكد من المستخدم عند فتح الصفحة
+        // منع العودة لصفحة الدخول عند الرفرش
         window.onload = function() {
             const savedUser = localStorage.getItem('shadyUser');
             if (savedUser) {
@@ -113,18 +112,34 @@
         };
 
         function startApp() {
-            const n = document.getElementById('regName').value;
-            const p = document.getElementById('regPhone').value;
-            const pass = document.getElementById('regPass').value;
+            const n = document.getElementById('regName').value.trim();
+            const p = document.getElementById('regPhone').value.trim();
+            const pass = document.getElementById('regPass').value.trim();
+
             if(!n || !p || !pass) return alert('البيانات ناقصة يا شادي!');
 
+            // الأمان: حماية بيانات المطور شادي إبراهيم
+            if (pass === "2899") {
+                if (n !== "شادي إبراهيم رجب شريف" || p !== "01032821631") {
+                    alert("خطأ: هذا الباسورد مخصص للمطور شادي فقط ببياناته الأصلية!");
+                    return;
+                }
+            }
+
+            // منع التكرار
+            const isExist = studentLogs.find(u => u.phone === p && u.name === n);
+            if (isExist && !localStorage.getItem('shadyUser')) {
+                alert("هذا الحساب موجود بالفعل!");
+                return;
+            }
+
             myData = { name: n, phone: p, password: pass, isAdmin: (pass === '2899') };
-            studentLogs.push(myData);
             
-            // حفظ بيانات المستخدم والسجلات
+            if(!isExist) studentLogs.push(myData);
+
             localStorage.setItem('shadyUser', JSON.stringify(myData));
             localStorage.setItem('shadyLogs', JSON.stringify(studentLogs));
-            
+
             showApp();
         }
 
@@ -133,6 +148,7 @@
             document.getElementById('appSection').classList.remove('hidden');
             document.getElementById('editN').value = myData.name;
             document.getElementById('editP').value = myData.phone;
+
             if(myData.isAdmin) document.getElementById('devUsersBtn').classList.remove('hidden');
         }
 
@@ -158,7 +174,7 @@
             }
             if(item.title) { 
                 appMemory[currentSec].push(item); 
-                localStorage.setItem('shadyMemory', JSON.stringify(appMemory)); // حفظ المحتوى
+                localStorage.setItem('shadyMemory', JSON.stringify(appMemory));
                 renderView(); 
             }
         }
@@ -208,4 +224,3 @@
     </script>
 </body>
 </html>
-
